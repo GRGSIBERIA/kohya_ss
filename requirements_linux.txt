@@ -1,8 +1,8 @@
 # Custom index URL for specific packages
---extra-index-url https://download.pytorch.org/whl/cu128
+--extra-index-url https://download.pytorch.org/whl/cu130
 
-torch==2.7.0+cu128
-torchvision==0.22.0+cu128
+torch==2.7.0+cu130
+torchvision==0.22.0+cu130
 xformers>=0.0.30
 
 bitsandbytes>=0.45.0
