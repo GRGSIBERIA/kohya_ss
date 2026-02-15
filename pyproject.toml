@@ -53,20 +53,20 @@ dependencies = [
     "triton>=3.1.0; sys_platform == 'linux' and platform_machine == 'x86_64'",
     "voluptuous==0.13.1",
     "wandb==0.18.0",
-    "xformers>=0.0.30",
+    "xformers>=0.0.30; (sys_platform == 'linux' and platform_machine == 'x86_64') or sys_platform == 'win32'",
 ]
 
 [tool.uv.sources]
 torch = [
-  { index = "pytorch-cu128", marker = "sys_platform == 'linux'" },
+  { index = "pytorch-cu128", marker = "sys_platform == 'linux' and platform_machine == 'x86_64'" },
   { index = "pytorch-cu128", marker = "sys_platform == 'win32'" }
 ]
 torchvision = [
-  { index = "pytorch-cu128", marker = "sys_platform == 'linux'" },
+  { index = "pytorch-cu128", marker = "sys_platform == 'linux' and platform_machine == 'x86_64'" },
   { index = "pytorch-cu128", marker = "sys_platform == 'win32'" }
 ]
 xformers = [
-  { index = "pytorch-cu128", marker = "sys_platform == 'linux'" },
+  { index = "pytorch-cu128", marker = "sys_platform == 'linux' and platform_machine == 'x86_64'" },
   { index = "pytorch-cu128", marker = "sys_platform == 'win32'" }
 ]
 library = { path = "sd-scripts" }
