@@ -51,5 +51,40 @@ if [[ "$uv_quiet" == "--quiet" ]]; then
   echo "Notice: uv will run in quiet mode. No indication of the uv module download and install process will be displayed."
 fi
 
+ensure_xformers_for_aarch64() {
+  local os_name
+  local arch_name
+  os_name=$(uname -s)
+  arch_name=$(uname -m)
+
+  if [[ "$os_name" != "Linux" || "$arch_name" != "aarch64" ]]; then
+    return 0
+  fi
+
+  echo "Linux aarch64 detected. Checking xformers availability..."
+
+  if uv run $uv_quiet python -c "import xformers; import xformers.ops" >/dev/null 2>&1; then
+    echo "xformers is already available. Skipping source build."
+    return 0
+  fi
+
+  echo "xformers wheel for aarch64 is typically unavailable. Building xformers from source..."
+
+  if [[ -z "${MAX_JOBS}" ]]; then
+    export MAX_JOBS=$(nproc)
+  fi
+
+  uv run $uv_quiet python -m pip install --upgrade pip setuptools wheel ninja cmake || return 1
+  uv run $uv_quiet python -m pip install --no-binary xformers xformers==0.0.30 || return 1
+
+  if uv run $uv_quiet python -c "import xformers; import xformers.ops" >/dev/null 2>&1; then
+    echo "xformers build/install completed successfully."
+  else
+    echo "Failed to validate xformers after installation attempt."
+    return 1
+  fi
+}
+
 git submodule update --init --recursive
+ensure_xformers_for_aarch64
 uv run $uv_quiet kohya_gui.py --noverify "${args[@]}"
