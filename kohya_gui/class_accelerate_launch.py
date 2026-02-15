@@ -149,6 +149,23 @@ class AccelerateLaunch:
             )
 
     def run_cmd(run_cmd: list, **kwargs):
+        extra_accelerate_launch_args = kwargs.get("extra_accelerate_launch_args", "")
+        has_custom_config_file = "--config_file" in extra_accelerate_launch_args
+
+        if not has_custom_config_file:
+            default_accelerate_config = os.path.abspath(
+                os.path.join(
+                    os.path.dirname(__file__),
+                    "..",
+                    "config_files",
+                    "accelerate",
+                    "default_config.yaml",
+                )
+            )
+            if os.path.isfile(default_accelerate_config):
+                run_cmd.append("--config_file")
+                run_cmd.append(shlex.quote(default_accelerate_config))
+
         if "dynamo_backend" in kwargs and kwargs.get("dynamo_backend"):
             run_cmd.append("--dynamo_backend")
             run_cmd.append(kwargs["dynamo_backend"])

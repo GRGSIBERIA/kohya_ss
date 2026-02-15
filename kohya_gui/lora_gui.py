@@ -2,6 +2,7 @@ import gradio as gr
 import json
 import math
 import os
+import re
 import time
 import toml
 
@@ -1103,6 +1104,91 @@ def train_model(
     #     text_encoder_lr = 0
     # if unet_lr == "":
     #     unet_lr = 0
+
+    if xformers == "xformers":
+        try:
+            import torch
+            import xformers.ops
+
+            if not torch.cuda.is_available():
+                raise RuntimeError("torch.cuda.is_available() is False")
+
+            query = torch.randn(1, 2, 1, 64, device="cuda", dtype=torch.float16)
+            _ = xformers.ops.memory_efficient_attention(query, query, query, p=0.0)
+        except Exception as e:
+            log.warning(
+                "xformers backend is unavailable or unsupported on this environment. "
+                f"Falling back to SDPA. reason: {e}"
+            )
+            xformers = "sdpa"
+            mem_eff_attn = False
+
+    if dataset_config == "" and train_data_dir != "":
+        image_extensions = (".jpg", ".jpeg", ".png", ".webp", ".bmp", ".avif")
+
+        def folder_has_images(path: str) -> bool:
+            try:
+                return any(
+                    os.path.isfile(os.path.join(path, file))
+                    and file.lower().endswith(image_extensions)
+                    for file in os.listdir(path)
+                )
+            except FileNotFoundError:
+                return False
+
+        subfolders = [
+            os.path.join(train_data_dir, f)
+            for f in os.listdir(train_data_dir)
+            if os.path.isdir(os.path.join(train_data_dir, f))
+        ]
+
+        has_images_in_root = folder_has_images(train_data_dir)
+        named_dataset_subfolders = [
+            folder
+            for folder in subfolders
+            if re.match(r"^\d+_", os.path.basename(folder)) and folder_has_images(folder)
+        ]
+        plain_image_subfolders = [
+            folder
+            for folder in subfolders
+            if not re.match(r"^\d+_", os.path.basename(folder)) and folder_has_images(folder)
+        ]
+
+        if not named_dataset_subfolders and (has_images_in_root or plain_image_subfolders):
+            auto_dataset_subsets = []
+            if has_images_in_root:
+                auto_dataset_subsets.append({"image_dir": train_data_dir, "num_repeats": 1})
+
+            for folder in plain_image_subfolders:
+                auto_dataset_subsets.append({"image_dir": folder, "num_repeats": 1})
+
+            if reg_data_dir != "" and folder_has_images(reg_data_dir):
+                auto_dataset_subsets.append(
+                    {
+                        "is_reg": True,
+                        "image_dir": reg_data_dir,
+                        "num_repeats": 1,
+                    }
+                )
+
+            auto_dataset_config = {
+                "general": {"caption_extension": caption_extension},
+                "datasets": [{"subsets": auto_dataset_subsets}],
+            }
+
+            auto_dataset_config_path = os.path.join(
+                output_dir,
+                f"dataset_config_autogen-{datetime.now().strftime('%Y%m%d-%H%M%S')}.toml",
+            )
+
+            with open(auto_dataset_config_path, "w", encoding="utf-8") as auto_dataset_toml:
+                toml.dump(auto_dataset_config, auto_dataset_toml)
+
+            dataset_config = auto_dataset_config_path
+            log.warning(
+                "Detected training images without DreamBooth folder naming (<repeats>_<name>). "
+                f"Auto-generated dataset_config: {dataset_config}"
+            )
 
     if dataset_config:
         log.info(
