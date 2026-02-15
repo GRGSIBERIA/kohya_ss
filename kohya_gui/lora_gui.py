@@ -1105,6 +1105,24 @@ def train_model(
     # if unet_lr == "":
     #     unet_lr = 0
 
+    if xformers == "xformers":
+        try:
+            import torch
+            import xformers.ops
+
+            if not torch.cuda.is_available():
+                raise RuntimeError("torch.cuda.is_available() is False")
+
+            query = torch.randn(1, 2, 1, 64, device="cuda", dtype=torch.float16)
+            _ = xformers.ops.memory_efficient_attention(query, query, query, p=0.0)
+        except Exception as e:
+            log.warning(
+                "xformers backend is unavailable or unsupported on this environment. "
+                f"Falling back to SDPA. reason: {e}"
+            )
+            xformers = "sdpa"
+            mem_eff_attn = False
+
     if dataset_config == "" and train_data_dir != "":
         image_extensions = (".jpg", ".jpeg", ".png", ".webp", ".bmp", ".avif")
 
