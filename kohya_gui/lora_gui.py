@@ -1190,6 +1190,43 @@ def train_model(
                 f"Auto-generated dataset_config: {dataset_config}"
             )
 
+    if resume and not resume_from_huggingface:
+        resolved_resume = resume
+
+        def is_valid_local_resume_state(path: str) -> bool:
+            return os.path.isfile(os.path.join(path, "pytorch_model.bin"))
+
+        if os.path.isdir(resume) and not is_valid_local_resume_state(resume):
+            candidate_state_dirs = [
+                os.path.join(resume, d)
+                for d in os.listdir(resume)
+                if os.path.isdir(os.path.join(resume, d))
+                and (
+                    d.endswith("-state")
+                    or re.search(r"-\d{6}-state$", d)
+                    or os.path.isfile(os.path.join(resume, d, "pytorch_model.bin"))
+                )
+            ]
+
+            candidate_state_dirs = [
+                d for d in candidate_state_dirs if is_valid_local_resume_state(d)
+            ]
+
+            if candidate_state_dirs:
+                resolved_resume = max(candidate_state_dirs, key=os.path.getmtime)
+                log.warning(
+                    "'resume' was not a direct state folder. "
+                    f"Using latest valid state folder instead: {resolved_resume}"
+                )
+            else:
+                log.warning(
+                    "'resume' does not contain accelerate state files (missing pytorch_model.bin). "
+                    "Resume will be disabled. To continue from a LoRA model, use network_weights instead."
+                )
+                resolved_resume = ""
+
+        resume = resolved_resume
+
     if dataset_config:
         log.info(
             "Dataset config toml file used, skipping total_steps, train_batch_size, gradient_accumulation_steps, epoch, reg_factor, max_train_steps calculations..."
